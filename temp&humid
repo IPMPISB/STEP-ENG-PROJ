@@ -1,0 +1,40 @@
+from PyQt4 import QtGui
+from PyQt4 import QtCore
+import sys
+import Adafruit_DHT
+sensor_args = { '11': Adafruit_DHT.DHT11,
+        '22': Adafruit_DHT.DHT22,
+        '2302': Adafruit_DHT.AM2302 }
+
+humidity, temperature = Adafruit_DHT.read_retry(11, 4)
+
+def main():
+    app    = QtGui.QApplication(sys.argv)
+    tabs   = QtGui.QTabWidget()
+    tab1   = QtGui.QWidget()   
+    tab2   = QtGui.QWidget()
+
+    tabs.setWindowTitle('Weather')
+    tabs.resize(250, 150)
+
+    vBoxlayout1 = QtGui.QVBoxLayout()
+    vBoxlayout2 = QtGui.QVBoxLayout()
+    vBoxlayout1.addWidget(QtGui.QLabel('Temp={:0.1f}'.format(temperature) ))
+    vBoxlayout2.addWidget(QtGui.QLabel('Humidity={:0.1f}%'.format(humidity) ))
+    vBoxlayout1.setAlignment(QtCore.Qt.AlignCenter)
+    vBoxlayout2.setAlignment(QtCore.Qt.AlignCenter)
+
+    tab1.setLayout(vBoxlayout1)
+    tab2.setLayout(vBoxlayout2)  
+
+    tabs.addTab(tab1,"Temp")
+    tabs.addTab(tab2,"Humidity")
+
+    print 'Temp={0:0.1f}*  Humidity={1:0.1f}%'.format(temperature, humidity)
+
+    tabs.show()
+
+    sys.exit(app.exec_())
+
+if ___name___ == '___main___':
+    main()
