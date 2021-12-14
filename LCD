@@ -1,0 +1,288 @@
+//============================================================================
+typedef unsigned char ubyte;
+typedef signed char sbyte;
+typedef unsigned short word;
+typedef unsigned long dword;
+/============================================================================
+//LCD Control line macros
+#define SET_LCD_E \
+  { \
+  /* fill out with your port access code */ \
+  }
+#define CLEAR_LCD_E \
+  { \
+  /* fill out with your port access code */ \
+  }
+#define SET_LCD_RS \
+  { \
+  /* fill out with your port access code */ \
+  }
+#define CLEAR_LCD_RS \
+  { \
+  /* fill out with your port access code */ \
+  }
+#define SET_LCD_RW \
+  { \
+  /* fill out with your port access code */ \
+  }
+#define CLEAR_LCD_RW \
+  { \
+  /* fill out with your port access code */ \
+  }
+
+//Apply the high 4 bits of data to the low four bits of the port.
+#define OUT_HIGH_NIBBLE (PRT1DR=(port1=(port1&0xF0)|(data>>4)))
+
+//Apply the low 4 bits of data to the low four bits of the port.
+#define OUT_LOW_NIBBLE (PRT1DR=(port1=(port1&0xF0)|(data&0x0F)))
+
+//Read the high nibble of the data is on the low nibble of Port 1.
+//Mask off the lower bits and store it.
+#define IN_HIGH_NIBBLE (read_data=(PRT1DR&0x0F)<<4)
+
+//Read the low nibble of the data is on the low nibble of Port 1.
+#define IN_LOW_NIBBLE (read_data|=PRT1DR&0x0F)
+
+#define SET_PORT1_FOR_LCD_WRITE \
+  { \
+  /* fill out with your port access code */ \
+  }
+
+#define SET_PORT1_FOR_LCD_READ \
+  { \
+  /* fill out with your port access code */ \
+  }
+
+#define PORT1_LCD_DATA_BUSY 0x08
+//============================================================================
+void Wait_For_Not_Busy(void)
+  {
+  uword
+    timeout;
+  //Poll the LCD's busy line until it is clear.
+  //Make register select 0
+  CLEAR_LCD_RS;
+  //Make R/W 1=read.
+  SET_LCD_RW;
+  //Change the data bits to inputs.
+  SET_PORT1_FOR_LCD_READ;
+  //Enable the controller's data onto the bus.
+  SET_LCD_E;
+  //Test the port's bit, wait for the bit to go low
+  if(PRT1DR&PORT1_LCD_DATA_BUSY)
+    for(timeout=1000;(PRT1DR&PORT1_LCD_DATA_BUSY)&&timeout;timeout--);
+  }
+//============================================================================
+ubyte Read_LCD_Address(void)
+  {
+  ubyte
+    read_data;
+  Wait_For_Not_Busy();
+  //Now the high nibble of the address is on the low nibble of Port 2.
+  //Mask off the busy bit and the upper bits and store it.
+  IN_HIGH_NIBBLE;
+  //Finish the high nibble clock cycle.
+  CLEAR_LCD_E;
+  //Strobe enable to clock in the low nibble--finishing the read.
+  SET_LCD_E;
+  //Now the low nibble of the address is on the low nibble of Port 2.
+  //Mask the upper bits and add it to the result.
+  IN_LOW_NIBBLE;
+  CLEAR_LCD_E;
+  //Turn the data bits back to their default output state.
+  SET_PORT1_FOR_LCD_WRITE;
+  return(read_data);  
+  }
+//============================================================================
+void Write_LCD_Data(ubyte data)
+  {
+  Wait_For_Not_Busy();
+  //Finish the high nibble clock cycle.
+  CLEAR_LCD_E;
+  //Strobe enable to clock in the low nibble--finishing the read.
+  SET_LCD_E;
+  CLEAR_LCD_E;
+  //Turn the data bits back to their default output state.
+  SET_PORT1_FOR_LCD_WRITE;
+  //Make R/W 0=write.
+  CLEAR_LCD_RW;
+  //Make register select 1
+  SET_LCD_RS;
+  //Apply the high 4 bits of data to the low four bits of the port.
+  OUT_HIGH_NIBBLE;
+  //Strobe enable to clock in the high nibble.
+  SET_LCD_E;
+  CLEAR_LCD_E;
+  //Apply the low 4 bits of data to the low four bits of the port.
+  OUT_LOW_NIBBLE;
+  //Strobe enable to clock in the low nibble.
+  SET_LCD_E;
+  CLEAR_LCD_E;  
+  }
+//============================================================================
+void Write_LCD_Control(ubyte data)
+  {
+  Wait_For_Not_Busy();
+  //Finish the high nibble clock cycle.
+  CLEAR_LCD_E;
+  //Strobe enable to clock in the low nibble--finishing the read.
+  SET_LCD_E;
+  CLEAR_LCD_E;
+  //Turn the data bits back to their default output state.
+  SET_PORT1_FOR_LCD_WRITE;
+  //Make R/W 0=write.
+  CLEAR_LCD_RW;
+  //Apply the high 4 bits of data to the low four bits of the port.
+  OUT_HIGH_NIBBLE;
+  //Strobe enable to clock in the high nibble.
+  SET_LCD_E;
+  CLEAR_LCD_E;
+  //Apply the low 4 bits of data to the low four bits of the port.
+  OUT_LOW_NIBBLE;
+  //Strobe enable to clock in the low nibble.
+  SET_LCD_E;
+  CLEAR_LCD_E;
+  }
+//============================================================================
+void Read_LCD_Data(ubyte length,ubyte address,ubyte *destination)
+  {
+  uword
+    timeout;
+  ubyte
+    read_data;
+  //First we need to write the address to the LCD.
+  //0x40 is first CGRAM
+  //0x80 is first DDRAM
+  Write_LCD_Control(address);
+  while(length--)
+    {
+    Wait_For_Not_Busy();
+    //Finish the high nibble clock cycle.
+    CLEAR_LCD_E;
+    //Strobe enable to clock in the low nibble--finishing the read.
+    SET_LCD_E;
+    CLEAR_LCD_E;
+    //Make register select 1, selecting the data instead of the address.
+    SET_LCD_RS;
+    //Enable the controller's data onto the bus.
+    SET_LCD_E;
+    //Now the high nibble of the data is on the low nibble of Port 2.
+    //Mask off the lower bits and store it.
+    IN_HIGH_NIBBLE;
+    //Finish the high nibble clock cycle.
+    CLEAR_LCD_E;
+    //Strobe enable to clock in the low nibble--finishing the read.
+    SET_LCD_E;
+    //Now the low nibble of the data is on the low nibble of Port 1.
+    IN_LOW_NIBBLE;
+    CLEAR_LCD_E;
+    //Store the data
+    *destination++=read_data;
+    }
+  //Turn the data bits back to their default output state.
+  SET_PORT1_FOR_LCD_WRITE;
+  }
+//============================================================================
+//does an "8-bit" write (as seen by the LCD)
+void Blind_Write_LCD_Upper_Control_Nibble(ubyte data)
+  {
+  //Make R/W 0=write
+  CLEAR_LCD_RW;
+  //Make register select 0
+  CLEAR_LCD_RS;
+  //Apply the high 4 bits of data to the low four bits of the port.
+  OUT_HIGH_NIBBLE;
+  //Strobe enable to clock in the high nibble.
+  SET_LCD_E;
+  CLEAR_LCD_E;
+  }
+//============================================================================
+void LCD_Position_Cursor(ubyte x, ubyte y)
+  {
+  //Valid x is 0-15, valid y is 0-1
+  if((x<16)&&(y<2))
+    Write_LCD_Control(0x80|(y<<6)|x);
+  }
+//============================================================================
+//Could make this aware of display size & wrapping.
+void LCD_puts(const char *input_string)
+  {
+  while(*input_string)
+    Write_LCD_Data(*input_string++);
+  }
+//============================================================================
+void LCD_put_dec_3(ubyte input)
+  {
+  ubyte
+    digit;
+  ubyte
+    no_blank;
+  digit=input/100;
+  if(digit)
+    {
+    Write_LCD_Data(digit+'0');
+    no_blank=1;
+    }
+  else
+    {
+    Write_LCD_Data(' ');
+    no_blank=0;
+    }
+  input%=100;
+  digit=input/10;
+  if(digit|no_blank)
+    Write_LCD_Data(digit+'0');
+  else
+    Write_LCD_Data(' ');
+  Write_LCD_Data(input%10+'0');
+  }
+//============================================================================
+void LCD_Initialize(void)
+  {
+  ubyte
+    i;
+  ubyte
+    j;
+
+  SET_PORT1_FOR_LCD_WRITE;
+
+  //This sequence is from the initialization on page 46 of the HD44780U
+  //data sheet.
+  delay_mS(40);
+  Blind_Write_LCD_Upper_Control_Nibble(0x30);
+  //Yes, the data sheet says write it twice.
+  delay_mS(5);
+  Blind_Write_LCD_Upper_Control_Nibble(0x30);
+  //Yes, the data sheet says write it three times.
+  delay_mS(1);
+  Blind_Write_LCD_Upper_Control_Nibble(0x30);
+  //Yes, the data sheet says write it four times, but at least this one counts.
+  //020h is Function set:
+  //4 bit,
+  //2 line
+  //F = (5x8)
+  delay_mS(1);
+  //This is last 8-bit write, which is an instruction to put the LCD into 4-bit mode.
+  Blind_Write_LCD_Upper_Control_Nibble(0x20);
+  //Here is the 4-bit instruction to set the font and number of lines.
+  Write_LCD_Control(0x28);
+
+  //"Display off"
+  Write_LCD_Control(0x08);
+  //"Display clear"
+  Write_LCD_Control(0x01);
+  //This delay is needed for at least one version of the Sitronix
+  //ST7066 Controller. No reasonable explanation, I found it
+  //empirically.
+  delay_mS(2);
+  //006h is Entry mode set, increment, no shift
+  Write_LCD_Control(0x06);
+  //Display on, cursor on, blinking
+  Write_LCD_Control(Cursor_Style=0x0F);
+  //Clear the display again. This seems to fix a power-up problem
+  //where the display shows "{{{{{" in a couple of places.
+  Write_LCD_Control(0x01);
+  //Why is this needed? Apparently not needed on the 635.
+  //delay_mS(2);
+  }
+//============================================================================
